@@ -215,6 +215,22 @@ def create_graph():
 
     return graph
 
+
+def final_response(user_query):
+    inputs = {
+        "messages": [
+            ("user", user_query),
+        ]
+    }
+
+    result = list()
+
+    for output in graph.stream(inputs):
+        result.append(output["agent"]["messages"][0].content)
+
+    return result[0]
+
+
 if __name__ == "__main__":
 
     graph = create_graph()
