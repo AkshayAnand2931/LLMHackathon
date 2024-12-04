@@ -12,8 +12,8 @@ from langchain_core.output_parsers import StrOutputParser
 from langgraph.graph import END, StateGraph, START
 from langgraph.prebuilt import ToolNode
 from test_websearch import web_search
-
 from summary import summarize_documents
+from recommend import recommend
 
 pharma_rag = PharmaceuticalRAG(
     data_path="datasets/microlabs_usa",
@@ -77,7 +77,6 @@ def grade_documents(state) -> Literal["generate", "rewrite"]:
     docs = last_message.content
 
     scored_result = chain.invoke({"question": question, "context": docs})
-    print(scored_result)
 
     score = scored_result.content
 
@@ -217,6 +216,7 @@ def create_graph():
     workflow.add_node("retrieve", retrieve)
     workflow.add_node("rewrite", rewrite)
     workflow.add_node("generate", generate)
+    workflow.add_node("recommend", recommend)
 
     workflow.add_edge(START, "agent")
 
@@ -233,7 +233,8 @@ def create_graph():
             "rewrite":"rewrite"
         }
     )
-    workflow.add_edge("generate", END)
+    workflow.add_edge("generate", "recommend")
+    workflow.add_edge("recommend", END)
     workflow.add_edge("rewrite", "agent")
 
     graph = workflow.compile()
@@ -254,7 +255,7 @@ def final_response(user_query):
     result = list()
 
     for output in graph.stream(inputs):
-        result.append(output["agent"]["messages"][0].content)
+        result.append(output["recommend"]["messages"][0].content)
 
     return result[0]
 
