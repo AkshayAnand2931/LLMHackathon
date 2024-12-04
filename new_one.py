@@ -22,13 +22,21 @@ from langchain.chains import RetrievalQA
 from langchain.callbacks.manager import CallbackManager
 from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 from langchain.prompts import PromptTemplate
+
+def should_continue(state: MessagesState):
+    messages = state["messages"]
+    last_message = messages[-1]
+    if last_message.tool_calls:
+        return "tools"
+    return END
+
 class ChatHistory:
     def __init__(self):
         self.messages = []
     
     def add_message(self, role: str, content: str):
         """Add a message to the chat history"""
-        self.messages.append({"role": role, "content": content, "timestamp": datetime.now()})
+        self.messages.append({"role": role, "content": content})
     
     def get_messages(self, limit: int = None) -> List[Dict]:
         """Get recent messages from history"""
@@ -335,14 +343,14 @@ if __name__ == "__main__":
     query = "What is machine learning?"
     
     # Initialize ChromaDB tool with chat history
-    chroma_tool = ChromaDBTool(data_path="./data")
+    chroma_tool = ChromaDBTool(data_path="./chroma_db")
     
     # First try to find relevant information in vector store
     vector_results = chroma_tool.retrieve(query=query)
     
     # If no relevant results found, perform web search
     if not vector_results:
-        web_tool = WebSearchTool(api_key="your_serpapi_key_here")
+        web_tool = WebSearchTool(api_key="ed09d22d123a41cab542c563919882c1460269e2b19f9f8803a27c7af888f324")
         search_results = web_tool.search(query=query)
         print("Web Search Results:", json.dumps(search_results, indent=2))
     else:
