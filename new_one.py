@@ -161,9 +161,22 @@ class ChromaDBTool:
             
             return str(response)
             
+<<<<<<< Updated upstream
         except Exception as e:
             print(f"Error querying RAG system: {e}")
             return f"Error: {str(e)}"
+=======
+            response = self.qa_chain.invoke({
+               "query":question,
+                "chat_history": history_str
+            }
+            )
+            
+            # Add response to chat history
+            self.chat_history.add_message("assistant", response)
+            
+            return response
+>>>>>>> Stashed changes
             
         except Exception as e:
             print(f"Error querying RAG system: {e}")
@@ -261,9 +274,14 @@ def call_model(state: MessagesState) -> Dict:
         base_url="http://localhost:1234/v1",
         api_key="not-needed",
         temperature=0,
+<<<<<<< Updated upstream
         streaming=True,
         callbacks=[StreamingStdOutCallbackHandler()]
         ).bind_tools([
+=======
+        streaming=True
+    ).bind_tools([
+>>>>>>> Stashed changes
         {
             "type": "function",
             "function": {
@@ -334,7 +352,7 @@ app = workflow.compile()
 
 if __name__ == "__main__":
     # Example usage
-    query = "What is machine learning?"
+    query = "What is the primary indication for Acetazolamide?"
     
     # Initialize ChromaDB tool with chat history
     chroma_tool = ChromaDBTool(data_path="./chroma_db")

@@ -34,7 +34,7 @@ retriever_tool = create_retriever_tool(
     "Search and return information about pharmaceutical medication"
 )
 
-tools = [retriever_tool, web_search]
+tools = [retriever_tool, web_search, recommend]
 
 
 def grade_documents(state) -> Literal["generate", "rewrite"]:
@@ -216,7 +216,6 @@ def create_graph():
     workflow.add_node("retrieve", retrieve)
     workflow.add_node("rewrite", rewrite)
     workflow.add_node("generate", generate)
-    workflow.add_node("recommend", recommend)
 
     workflow.add_edge(START, "agent")
 
@@ -233,8 +232,8 @@ def create_graph():
             "rewrite":"rewrite"
         }
     )
-    workflow.add_edge("generate", "recommend")
-    workflow.add_edge("recommend", END)
+
+    workflow.add_edge("generate", END)
     workflow.add_edge("rewrite", "agent")
 
     graph = workflow.compile()
@@ -255,13 +254,13 @@ def final_response(user_query):
     result = list()
 
     for output in graph.stream(inputs):
-        result.append(output["recommend"]["messages"][0].content)
-
-    return result[0]
+        if "generate" in output.keys():
+            return output["generate"]["messages"][0]
 
 
 if __name__ == "__main__":
-
+    pass
+"""
     graph = create_graph()
 
     graph.get_graph(xray=True).draw_mermaid_png()
@@ -277,5 +276,4 @@ if __name__ == "__main__":
         }
 
         for output in graph.stream(inputs):
-            print(output)
-
+            print(output)"""
