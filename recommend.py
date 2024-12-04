@@ -1,3 +1,7 @@
+from langchain_core.prompts import PromptTemplate
+from langchain_openai import ChatOpenAI
+from langchain_core.output_parsers import StrOutputParser
+
 def recommend(state):
     """
     Dynamically generates recommendations for any type of question.
@@ -12,23 +16,16 @@ def recommend(state):
 
     messages = state["messages"]
     user_query = messages[0].content
+    last_message = messages[-1]
+    docs = last_message.content
 
-    # Retrieve context for the query
-    retriever = create_retriever_tool(
-        retriever, "retrieve_context", "Search for relevant information"
-    )
-    docs = retriever.invoke(user_query)
-
-    # If retrieval finds results, use them
-    if docs:
-        retrieved_context = "\n".join(doc.page_content for doc in docs)
-    else:
-        retrieved_context = None
-
+    print(docs)
+    print(user_query)
     # LLM reasoning and generation
     model = ChatOpenAI(
-        model_name="gpt-4-0125-preview",
-        temperature=0.5,
+        base_url="http://localhost:1234/v1",
+        api_key="not-needed",
+        temperature=0,
         streaming=True
     )
 
@@ -40,18 +37,18 @@ def recommend(state):
         User Query: {user_query}
 
         Retrieved Context:
-        {retrieved_context}
+        {docs}
 
         If context is available, use it to make your recommendation. If no context is retrieved, generate a thoughtful response based on general knowledge. Provide reasoning in your answer.
         """,
-        input_variables=["user_query", "retrieved_context"],
+        input_variables=["user_query", "docs"],
     )
 
     # Chain LLM with prompt
-    recommendation_chain = prompt | model
+    recommendation_chain = prompt | model | StrOutputParser()
     response = recommendation_chain.invoke({
         "user_query": user_query,
-        "retrieved_context": retrieved_context or "No specific information retrieved."
+        "docs":docs
     })
 
-    return {"messages": [{"content": response}]}
+    return {"messages": response}
