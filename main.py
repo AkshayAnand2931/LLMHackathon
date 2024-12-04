@@ -64,7 +64,7 @@ class PharmaceuticalRAG:
         
         llm = OpenAI(
             base_url=self.lmstudio_api_base,
-            api_key="not-needed",  # LMStudio doesn't need an API key
+            api_key="not-needed", 
             streaming=True,
             callback_manager=callback_manager,
             temperature=0.7,
