@@ -4,8 +4,8 @@ from serpapi import GoogleSearch
 from langchain_core.tools import tool
 
 # Add SerpAPI Wrapper
-#serp_api = SerpAPIWrapper(serpapi_api_key="ed09d22d123a41cab542c563919882c1460269e2b19f9f8803a27c7af888f324")  # Replace with your SerpAPI key
-serpapi_api_key="ed09d22d123a41cab542c563919882c1460269e2b19f9f8803a27c7af888f324"
+#serp_api = SerpAPIWrapper(serpapi_api_key="")  # Replace with your SerpAPI key
+serpapi_api_key=""
 
 @tool
 def web_search(question: str):
