@@ -58,8 +58,26 @@ class PharmaceuticalRAG:
             persist_directory="./chroma_db"
         )
 
+        return self.vector_store.as_retriever()
+
+    def load_existing_vector_store(self):
+        print("++++ Loading existing vector store from disk ++++")
+        try:
+            self.vector_store = Chroma(
+                persist_directory="./chroma_db",
+                embedding_function=self.embeddings
+            )
+            print("++++ Vector store loaded successfully ++++")
+
+            return self.vector_store.as_retriever()
+
+        except Exception as e:
+            print(f"++++ ERROR loading vector store: {str(e)} ++++")
+            raise
+
     def setup_retrieval_qa(self):
         # Initialize LMStudio client
+        print("before qa")
         callback_manager = CallbackManager([StreamingStdOutCallbackHandler()])
         
         llm = OpenAI(
@@ -96,6 +114,8 @@ class PharmaceuticalRAG:
             ),
             chain_type_kwargs={"prompt": PROMPT}
         )
+
+        print("after qa")
 
     def initialize(self):
         """Initialize the RAG system"""

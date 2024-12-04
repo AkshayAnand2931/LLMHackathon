@@ -1,2 +1,5 @@
 # Ignore virtual environment directory
 venv/
+.idea
+__pycache__/
+chroma_db
