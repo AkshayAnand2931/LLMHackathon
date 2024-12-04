@@ -11,8 +11,9 @@ from langchain import hub
 from langchain_core.output_parsers import StrOutputParser
 from langgraph.graph import END, StateGraph, START
 from langgraph.prebuilt import ToolNode
-from langgraph.prebuilt import tools_condition
-import pprint
+from test_websearch import web_search
+
+from summary import summarize_documents
 
 pharma_rag = PharmaceuticalRAG(
     data_path="datasets/microlabs_usa",
@@ -33,7 +34,7 @@ retriever_tool = create_retriever_tool(
     "Search and return information about pharmaceutical medication"
 )
 
-tools = [retriever_tool]
+tools = [retriever_tool, web_search]
 
 
 def grade_documents(state) -> Literal["generate", "rewrite"]:
@@ -49,10 +50,6 @@ def grade_documents(state) -> Literal["generate", "rewrite"]:
 
     print("--CHECK RELEVANCE--")
 
-    class grade(BaseModel):
-
-        binary_score: str = Field(description="Relevance score 'yes' or 'no' ")
-
     model = ChatOpenAI(
         base_url="http://localhost:1234/v1",
         api_key="not-needed",
@@ -60,18 +57,18 @@ def grade_documents(state) -> Literal["generate", "rewrite"]:
         streaming = True
     )
 
-    llm_with_tool = model.with_structured_output(grade)
-
     prompt = PromptTemplate(
         template="""You are a grader assessing relevance of a retrieved document to a user question. \n 
             Here is the retrieved document: \n\n {context} \n\n
             Here is the user question: {question} \n
             If the document contains keyword(s) or semantic meaning related to the user question, grade it as relevant. \n
-            Give a binary score 'yes' or 'no' score to indicate whether the document is relevant to the question.""",
+            Give a binary score 'yes' or 'no' score to indicate whether the document is relevant to the question.
+            
+            Reminder: Reply only yes or no. No other words. No other explanation.""",
         input_variables=["context", "question"],
     )
 
-    chain = prompt | llm_with_tool
+    chain = prompt | model
 
     messages = state['messages']
     last_message = messages[-1]
@@ -80,8 +77,9 @@ def grade_documents(state) -> Literal["generate", "rewrite"]:
     docs = last_message.content
 
     scored_result = chain.invoke({"question": question, "context": docs})
+    print(scored_result)
 
-    score = scored_result.binary_score
+    score = scored_result.content
 
     if score == "yes":
         print("--DECISION: DOCS RELEVANT---")
@@ -90,6 +88,7 @@ def grade_documents(state) -> Literal["generate", "rewrite"]:
     else:
         print("--DECISION: DOCS NOT RELEVANT--")
         return "rewrite"
+
 
 def agent(state):
     """
@@ -112,9 +111,26 @@ def agent(state):
         streaming=True
     )
 
+    # Force tool usage with a specific prompt
+    forced_prompt = PromptTemplate(
+        template="""You must use the retrieve_pharmaceutical_data tool to find information before responding.
+        Never respond directly without using the tool first.
+
+        Question: {question}
+
+        Remember: Always use the retrieve_pharmaceutical_data tool to search for relevant information.""",
+        input_variables=["question"]
+    )
+
+    # Add the forced prompt to ensure tool usage
+    if isinstance(messages[0], HumanMessage):
+        question = messages[0].content
+        formatted_prompt = forced_prompt.format(question=question)
+        messages = [HumanMessage(content=formatted_prompt)] + messages[1:]
+
     model = model.bind_tools(tools)
     response = model.invoke(messages)
-    return {"messages": [response]}
+    return {"messages":[response]}
 
 def rewrite(state):
     """
@@ -143,7 +159,11 @@ def rewrite(state):
         )
     ]
 
-    model = ChatOpenAI(temperature=0, model="gpt-4-0125-preview", streaming=True)
+    model = ChatOpenAI(
+        base_url="http://localhost:1234/v1",
+        api_key="not-needed",
+        temperature=0
+    )
     response = model.invoke(msg)
     return {"messages": [response]}
 
@@ -164,11 +184,18 @@ def generate(state):
 
     docs = last_message.content
 
+    docs = summarize_documents(docs)
+
     # Prompt
     prompt = hub.pull("rlm/rag-prompt")
 
     # LLM
-    llm = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0, streaming=True)
+    llm = ChatOpenAI(
+        base_url="http://localhost:1234/v1",
+        api_key="not-needed",
+        temperature=0,
+        streaming=True
+    )
 
     # Post-processing
     def format_docs(docs):
@@ -193,20 +220,18 @@ def create_graph():
 
     workflow.add_edge(START, "agent")
 
-    workflow.add_conditional_edges(
+    workflow.add_edge(
         "agent",
-        # Assess agent decision
-        tools_condition,
-        {
-            # Translate the condition outputs to nodes in our graph
-            "tools": "retrieve",
-            END: END,
-        },
+        "retrieve"
     )
 
     workflow.add_conditional_edges(
         "retrieve",
         grade_documents,
+{
+            "generate":"generate",
+            "rewrite":"rewrite"
+        }
     )
     workflow.add_edge("generate", END)
     workflow.add_edge("rewrite", "agent")
@@ -217,6 +242,9 @@ def create_graph():
 
 
 def final_response(user_query):
+
+    graph = create_graph()
+
     inputs = {
         "messages": [
             ("user", user_query),
@@ -235,6 +263,8 @@ if __name__ == "__main__":
 
     graph = create_graph()
 
+    graph.get_graph(xray=True).draw_mermaid_png()
+
     while(True):
 
         print("--------------------------")
@@ -246,4 +276,5 @@ if __name__ == "__main__":
         }
 
         for output in graph.stream(inputs):
-            print(output["agent"]["messages"][0].content)
+            print(output)
+

@@ -13,7 +13,7 @@ def summarize_documents(docs):
 
         # Load a pretrained summarization pipeline (e.g., BART or T5)
         summarizer = pipeline("summarization", model="facebook/bart-large-cnn")
-        
+
         # Process the documents for summarization (if too long, chunk into parts)
         if len(docs) > 1000:
             summaries = []
@@ -24,4 +24,5 @@ def summarize_documents(docs):
             return " ".join(summaries)
         else:
             summary = summarizer(docs, max_length=130, min_length=30, do_sample=False)[0]["summary_text"]
+            print(f"Summarised text is: {summary}")
             return summary
