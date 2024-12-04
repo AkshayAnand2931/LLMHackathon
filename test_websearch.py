@@ -1,8 +1,10 @@
 import json
 from langchain.utilities import SerpAPIWrapper
+from serpapi import GoogleSearch
 
 # Add SerpAPI Wrapper
-serp_api = SerpAPIWrapper(serpapi_api_key="ed09d22d123a41cab542c563919882c1460269e2b19f9f8803a27c7af888f324")  # Replace with your SerpAPI key
+#serp_api = SerpAPIWrapper(serpapi_api_key="ed09d22d123a41cab542c563919882c1460269e2b19f9f8803a27c7af888f324")  # Replace with your SerpAPI key
+serpapi_api_key="ed09d22d123a41cab542c563919882c1460269e2b19f9f8803a27c7af888f324"
 
 def web_search(question: str):
     """
@@ -16,13 +18,25 @@ def web_search(question: str):
     """
     print("---PERFORMING WEB SEARCH---")
     try:
+        params = {
+            "engine": "google",
+            "q": question,
+            "api_key": serpapi_api_key
+        }
+
+        search = GoogleSearch(params)
+        results = search.get_dict()
+        #print(results)
+        organic_results = results["organic_results"]
+        #print(results)
         # Perform the search using SerpAPI
-        search_results = serp_api.run(query=question)
+        #search_results = serp_api.run(query=question)
+        print(organic_results)
 
         # Parse results into JSON
-        if isinstance(search_results, list) and len(search_results) > 0:
-            titles = " ".join(item.get("title", "") for item in search_results)
-            source = search_results[0].get("source", "Unknown source")
+        if isinstance(organic_results, list) and len(organic_results) > 0:
+            titles = " ".join(item.get("title", "") for item in organic_results)
+            source = organic_results[0].get("source", "Unknown source")
             result_json = {"content": titles, "source": source}
         else:
             result_json = {"content": "No relevant information found online.", "source": "Unknown"}
