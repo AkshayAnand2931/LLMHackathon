@@ -117,34 +117,30 @@ class ChromaDBTool:
             return []
 
     def query(self, question: str) -> str:
-        """Query the RAG system with chat history context"""
         try:
             if not self.qa_chain:
-                callback_manager = CallbackManager([StreamingStdOutCallbackHandler()])
+                # Use callbacks instead of callback_manager
+                callbacks = [StreamingStdOutCallbackHandler()]
                 
-                llm = OpenAI(
+                llm = ChatOpenAI(
                     base_url=self.lmstudio_api_base,
                     api_key="not-needed", 
                     streaming=True,
-                    callback_manager=callback_manager,
+                    callbacks=callbacks,
                     temperature=0.7,
                 )
 
-                prompt_template = """Use the following pieces of context and chat history to answer the question at the end. 
+                prompt_template = """Use the following pieces of context to answer the question at the end. 
                 If you don't know the answer, just say that you don't know.
 
                 Context: {context}
-
-                Chat History:
-                {chat_history}
-
                 Question: {question}
 
                 Answer:"""
 
                 PROMPT = PromptTemplate(
                     template=prompt_template,
-                    input_variables=["context", "chat_history", "question"]
+                    input_variables=["context", "question"]
                 )
 
                 self.qa_chain = RetrievalQA.from_chain_type(
@@ -154,25 +150,20 @@ class ChromaDBTool:
                         search_type="mmr",
                         search_kwargs={"k": 3}
                     ),
-                    chain_type_kwargs={"prompt": PROMPT}
+                    chain_type_kwargs={"prompt": PROMPT},
+                    return_source_documents=True
                 )
             
-            # Get recent chat history
-            recent_history = self.chat_history.get_messages(limit=5)
-            history_str = "\n".join([f"{msg['role']}: {msg['content']}" for msg in recent_history])
+            # Use invoke with correct parameters
+            response = self.qa_chain.invoke({
+                "query": question
+            })
             
-            # Add question to chat history
-            self.chat_history.add_message("user", question)
+            return str(response)
             
-            response = self.qa_chain.run(
-                question=question,
-                chat_history=history_str
-            )
-            
-            # Add response to chat history
-            self.chat_history.add_message("assistant", response)
-            
-            return response
+        except Exception as e:
+            print(f"Error querying RAG system: {e}")
+            return f"Error: {str(e)}"
             
         except Exception as e:
             print(f"Error querying RAG system: {e}")
@@ -267,9 +258,12 @@ def call_model(state: MessagesState) -> Dict:
     """Call the language model to process the current state"""
     messages = state["messages"]
     model = ChatOpenAI(
-        model="gpt-3.5-turbo",
-        temperature=0
-    ).bind_tools([
+        base_url="http://localhost:1234/v1",
+        api_key="not-needed",
+        temperature=0,
+        streaming=True,
+        callbacks=[StreamingStdOutCallbackHandler()]
+        ).bind_tools([
         {
             "type": "function",
             "function": {
